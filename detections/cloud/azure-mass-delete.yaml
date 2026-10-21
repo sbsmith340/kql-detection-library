@@ -1,0 +1,33 @@
+id: 3f1c2a10-6b1e-4c7a-9a01-0c5f1e7d2a12
+name: Mass deletion of Azure resources by one identity
+description: >
+  One caller deletes an unusual number of Azure resources in a short window.
+  Covers destructive insider actions and compromised automation credentials.
+severity: High
+status: lab-test-pending
+tactics: [Impact]
+techniques: [T1485]
+data_sources: [AzureActivity]
+query_frequency: PT1H
+query_period: PT1H
+trigger_threshold: 0
+query: |
+  let window = 1h;
+  let minDeletes = 10;
+  AzureActivity
+  | where TimeGenerated > ago(window)
+  | where OperationNameValue endswith "/DELETE"
+  | where ActivityStatusValue in ("Success", "Succeeded")
+  | summarize Deletes = count(), ResourceTypes = make_set(ResourceProviderValue, 10),
+              Resources = make_set(_ResourceId, 20), ResourceGroups = make_set(ResourceGroup, 10),
+              FirstDelete = min(TimeGenerated), LastDelete = max(TimeGenerated)
+      by Caller, CallerIpAddress, SubscriptionId
+  | where Deletes >= minDeletes
+entity_mappings:
+  - entityType: Account
+    fieldMappings: [{identifier: FullName, columnName: Caller}]
+  - entityType: IP
+    fieldMappings: [{identifier: Address, columnName: CallerIpAddress}]
+tuning: Exclude teardown pipelines by their service principal ID, and only for the resource groups they own.
+false_positives: Scheduled environment teardown, infrastructure-as-code destroy runs.
+test: In a lab subscription, create 12 empty resources (e.g. public IPs) and delete them with a script.

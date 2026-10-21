@@ -1,0 +1,37 @@
+id: 3f1c2a10-6b1e-4c7a-9a01-0c5f1e7d2a13
+name: Network security group rule opens a management port to the internet
+description: >
+  An NSG security rule is created or updated to allow RDP, SSH, WinRM, or SMB
+  from any source. One of the most common causes of cloud compromise.
+severity: High
+status: lab-test-pending
+tactics: [DefenseEvasion, InitialAccess]
+techniques: [T1562.007, T1133]
+data_sources: [AzureActivity]
+query_frequency: PT1H
+query_period: PT1H
+trigger_threshold: 0
+query: |
+  let mgmtPorts = dynamic(["22", "3389", "5985", "5986", "445", "*"]);
+  AzureActivity
+  | where TimeGenerated > ago(1h)
+  | where OperationNameValue =~ "MICROSOFT.NETWORK/NETWORKSECURITYGROUPS/SECURITYRULES/WRITE"
+  | where ActivityStatusValue in ("Success", "Succeeded")
+  | extend Req = parse_json(tostring(parse_json(Properties).requestbody)).properties
+  | extend Access = tostring(Req.access), Direction = tostring(Req.direction),
+           Source = tostring(Req.sourceAddressPrefix), Port = tostring(Req.destinationPortRange)
+  | where Access =~ "Allow" and Direction =~ "Inbound"
+  | where Source in ("*", "0.0.0.0/0", "Internet", "Any")
+  | where Port in (mgmtPorts)
+  | project TimeGenerated, Caller, CallerIpAddress, _ResourceId, Port, Source, Access
+entity_mappings:
+  - entityType: Account
+    fieldMappings: [{identifier: FullName, columnName: Caller}]
+  - entityType: AzureResource
+    fieldMappings: [{identifier: ResourceId, columnName: _ResourceId}]
+tuning: >
+  The request body is only logged for some callers; port ranges (e.g. 3380-3390)
+  and lists of ports in destinationPortRanges are not matched. Pair with an Azure
+  Policy deny rule as the preventive control.
+false_positives: Short-lived lab environments; should still be challenged.
+test: In a lab subscription, add an inbound NSG rule allowing TCP 3389 from Any.
