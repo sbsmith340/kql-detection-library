@@ -1,0 +1,738 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "string",
+      "metadata": {
+        "description": "Log Analytics workspace name with Microsoft Sentinel enabled"
+      }
+    },
+    "enableRules": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Rules deploy disabled by default so they can be reviewed first"
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "apiVersion": "2023-02-01",
+      "name": "[concat(parameters('workspace'), '/Microsoft.SecurityInsights/', '3f1c2a10-6b1e-4c7a-9a01-0c5f1e7d2a12')]",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "Mass deletion of Azure resources by one identity",
+        "description": "One caller deletes an unusual number of Azure resources in a short window. Covers destructive insider actions and compromised automation credentials.",
+        "severity": "High",
+        "enabled": "[parameters('enableRules')]",
+        "query": "let window = 1h;\nlet minDeletes = 10;\nAzureActivity\n| where TimeGenerated > ago(window)\n| where OperationNameValue endswith \"/DELETE\"\n| where ActivityStatusValue in (\"Success\", \"Succeeded\")\n| summarize Deletes = count(), ResourceTypes = make_set(ResourceProviderValue, 10),\n            Resources = make_set(_ResourceId, 20), ResourceGroups = make_set(ResourceGroup, 10),\n            FirstDelete = min(TimeGenerated), LastDelete = max(TimeGenerated)\n    by Caller, CallerIpAddress, SubscriptionId\n| where Deletes >= minDeletes\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionEnabled": false,
+        "suppressionDuration": "PT5H",
+        "tactics": [
+          "Impact"
+        ],
+        "techniques": [
+          "T1485"
+        ],
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "Caller"
+              }
+            ]
+          },
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "CallerIpAddress"
+              }
+            ]
+          }
+        ],
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "apiVersion": "2023-02-01",
+      "name": "[concat(parameters('workspace'), '/Microsoft.SecurityInsights/', '3f1c2a10-6b1e-4c7a-9a01-0c5f1e7d2a13')]",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "Network security group rule opens a management port to the internet",
+        "description": "An NSG security rule is created or updated to allow RDP, SSH, WinRM, or SMB from any source. One of the most common causes of cloud compromise.",
+        "severity": "High",
+        "enabled": "[parameters('enableRules')]",
+        "query": "let mgmtPorts = dynamic([\"22\", \"3389\", \"5985\", \"5986\", \"445\", \"*\"]);\nAzureActivity\n| where TimeGenerated > ago(1h)\n| where OperationNameValue =~ \"MICROSOFT.NETWORK/NETWORKSECURITYGROUPS/SECURITYRULES/WRITE\"\n| where ActivityStatusValue in (\"Success\", \"Succeeded\")\n| extend Req = parse_json(tostring(parse_json(Properties).requestbody)).properties\n| extend Access = tostring(Req.access), Direction = tostring(Req.direction),\n         Source = tostring(Req.sourceAddressPrefix), Port = tostring(Req.destinationPortRange)\n| where Access =~ \"Allow\" and Direction =~ \"Inbound\"\n| where Source in (\"*\", \"0.0.0.0/0\", \"Internet\", \"Any\")\n| where Port in (mgmtPorts)\n| project TimeGenerated, Caller, CallerIpAddress, _ResourceId, Port, Source, Access\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionEnabled": false,
+        "suppressionDuration": "PT5H",
+        "tactics": [
+          "DefenseEvasion",
+          "InitialAccess"
+        ],
+        "techniques": [
+          "T1133",
+          "T1562"
+        ],
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "Caller"
+              }
+            ]
+          },
+          {
+            "entityType": "AzureResource",
+            "fieldMappings": [
+              {
+                "identifier": "ResourceId",
+                "columnName": "_ResourceId"
+              }
+            ]
+          }
+        ],
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "apiVersion": "2023-02-01",
+      "name": "[concat(parameters('workspace'), '/Microsoft.SecurityInsights/', '3f1c2a10-6b1e-4c7a-9a01-0c5f1e7d2a10')]",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "User clicked through a URL later classified as malicious",
+        "description": "Safe Links allowed a click that Defender for Office 365 later (or at click time) identified as phishing or malware. These users need password reset and session revocation review.",
+        "severity": "High",
+        "enabled": "[parameters('enableRules')]",
+        "query": "UrlClickEvents\n| where Timestamp > ago(1d)\n| where ActionType in (\"ClickAllowed\", \"UrlScanInProgress\") or IsClickedThrough == true\n| where ThreatTypes has_any (\"Phish\", \"Malware\")\n| join kind=leftouter (\n    EmailEvents\n    | where Timestamp > ago(2d)\n    | project NetworkMessageId, Subject, SenderFromAddress, DeliveryAction\n  ) on NetworkMessageId\n| project Timestamp, AccountUpn, Url, ActionType, IsClickedThrough, ThreatTypes, Subject, SenderFromAddress, IPAddress\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "P1D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionEnabled": false,
+        "suppressionDuration": "PT5H",
+        "tactics": [
+          "InitialAccess"
+        ],
+        "techniques": [
+          "T1204",
+          "T1566"
+        ],
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "AccountUpn"
+              }
+            ]
+          },
+          {
+            "entityType": "URL",
+            "fieldMappings": [
+              {
+                "identifier": "Url",
+                "columnName": "Url"
+              }
+            ]
+          }
+        ],
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "apiVersion": "2023-02-01",
+      "name": "[concat(parameters('workspace'), '/Microsoft.SecurityInsights/', '3f1c2a10-6b1e-4c7a-9a01-0c5f1e7d2a11')]",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "Inbox rule forwards or redirects mail to an external address",
+        "description": "A mailbox rule is created or changed to forward, redirect, or delete mail, often to hide replies from the victim during business email compromise.",
+        "severity": "Medium",
+        "enabled": "[parameters('enableRules')]",
+        "query": "let internalDomains = dynamic([\"contoso.com\"]);   // replace with your accepted domains\nOfficeActivity\n| where TimeGenerated > ago(1h)\n| where Operation in (\"New-InboxRule\", \"Set-InboxRule\", \"UpdateInboxRules\")\n| extend Params = tostring(Parameters)\n| where Params has_any (\"ForwardTo\", \"ForwardAsAttachmentTo\", \"RedirectTo\", \"DeleteMessage\", \"MoveToFolder\")\n| extend ForwardAddress = extract(@\"(?i)(?:ForwardTo|ForwardAsAttachmentTo|RedirectTo)\"\"?,\"\"Value\"\":\"\"([^\"\"]+)\", 1, Params)\n| extend ForwardDomain = tostring(split(ForwardAddress, \"@\")[1])\n| where isempty(ForwardDomain) or not(ForwardDomain in~ (internalDomains))\n| project TimeGenerated, UserId, Operation, ForwardAddress, ClientIP, Params\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionEnabled": false,
+        "suppressionDuration": "PT5H",
+        "tactics": [
+          "Collection",
+          "Exfiltration"
+        ],
+        "techniques": [
+          "T1114"
+        ],
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "UserId"
+              }
+            ]
+          }
+        ],
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "apiVersion": "2023-02-01",
+      "name": "[concat(parameters('workspace'), '/Microsoft.SecurityInsights/', '3f1c2a10-6b1e-4c7a-9a01-0c5f1e7d2a06')]",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "PowerShell launched with an encoded command",
+        "description": "PowerShell started with -EncodedCommand (or a short alias of it). Encoding is a common way to hide download cradles and payloads from simple inspection. The rule decodes the payload so the analyst sees it immediately.",
+        "severity": "Medium",
+        "enabled": "[parameters('enableRules')]",
+        "query": "DeviceProcessEvents\n| where Timestamp > ago(1h)\n| where FileName in~ (\"powershell.exe\", \"pwsh.exe\")\n| where ProcessCommandLine matches regex @\"(?i)\\s-e(nc|ncodedcommand|c)?\\s+[A-Za-z0-9+/=]{20,}\"\n| extend Encoded = extract(@\"(?i)\\s-e(?:nc|ncodedcommand|c)?\\s+([A-Za-z0-9+/=]{20,})\", 1, ProcessCommandLine)\n| extend Decoded = replace_string(base64_decode_tostring(Encoded), \"\\u0000\", \"\")\n| project Timestamp, DeviceName, AccountName, InitiatingProcessFileName, ProcessCommandLine, Decoded, ReportId, DeviceId\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionEnabled": false,
+        "suppressionDuration": "PT5H",
+        "tactics": [
+          "Execution",
+          "DefenseEvasion"
+        ],
+        "techniques": [
+          "T1027",
+          "T1059"
+        ],
+        "entityMappings": [
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "HostName",
+                "columnName": "DeviceName"
+              }
+            ]
+          },
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "Name",
+                "columnName": "AccountName"
+              }
+            ]
+          }
+        ],
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "apiVersion": "2023-02-01",
+      "name": "[concat(parameters('workspace'), '/Microsoft.SecurityInsights/', '3f1c2a10-6b1e-4c7a-9a01-0c5f1e7d2a07')]",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "Credential dumping tool or LSASS dump via comsvcs.dll",
+        "description": "Detects the most common living-off-the-land LSASS dump (rundll32 calling comsvcs.dll MiniDump) and well-known credential dumping tool names or command-line markers.",
+        "severity": "High",
+        "enabled": "[parameters('enableRules')]",
+        "query": "DeviceProcessEvents\n| where Timestamp > ago(1h)\n| where (FileName =~ \"rundll32.exe\" and ProcessCommandLine has \"comsvcs\" and ProcessCommandLine has_any (\"MiniDump\", \"#24\"))\n     or (FileName in~ (\"procdump.exe\", \"procdump64.exe\") and ProcessCommandLine has \"lsass\")\n     or ProcessCommandLine has_any (\"sekurlsa::\", \"lsadump::\", \"privilege::debug\")\n| project Timestamp, DeviceName, AccountName, FileName, ProcessCommandLine, InitiatingProcessFileName, ReportId, DeviceId\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionEnabled": false,
+        "suppressionDuration": "PT5H",
+        "tactics": [
+          "CredentialAccess"
+        ],
+        "techniques": [
+          "T1003"
+        ],
+        "entityMappings": [
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "HostName",
+                "columnName": "DeviceName"
+              }
+            ]
+          },
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "Name",
+                "columnName": "AccountName"
+              }
+            ]
+          }
+        ],
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "apiVersion": "2023-02-01",
+      "name": "[concat(parameters('workspace'), '/Microsoft.SecurityInsights/', '3f1c2a10-6b1e-4c7a-9a01-0c5f1e7d2a08')]",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "Office application spawns a script interpreter or LOLBin",
+        "description": "Word, Excel, PowerPoint or Outlook launching cmd, PowerShell, script hosts, or common download/execution binaries. Typical of macro and exploit-based initial access.",
+        "severity": "High",
+        "enabled": "[parameters('enableRules')]",
+        "query": "let officeApps = dynamic([\"winword.exe\", \"excel.exe\", \"powerpnt.exe\", \"outlook.exe\", \"onenote.exe\"]);\nlet children = dynamic([\"cmd.exe\", \"powershell.exe\", \"pwsh.exe\", \"wscript.exe\", \"cscript.exe\", \"mshta.exe\",\n    \"rundll32.exe\", \"regsvr32.exe\", \"certutil.exe\", \"bitsadmin.exe\", \"curl.exe\"]);\nDeviceProcessEvents\n| where Timestamp > ago(1h)\n| where InitiatingProcessFileName in~ (officeApps)\n| where FileName in~ (children)\n| project Timestamp, DeviceName, AccountName, InitiatingProcessFileName, InitiatingProcessCommandLine,\n          FileName, ProcessCommandLine, ReportId, DeviceId\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionEnabled": false,
+        "suppressionDuration": "PT5H",
+        "tactics": [
+          "Execution",
+          "InitialAccess"
+        ],
+        "techniques": [
+          "T1204",
+          "T1566"
+        ],
+        "entityMappings": [
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "HostName",
+                "columnName": "DeviceName"
+              }
+            ]
+          },
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "Name",
+                "columnName": "AccountName"
+              }
+            ]
+          }
+        ],
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "apiVersion": "2023-02-01",
+      "name": "[concat(parameters('workspace'), '/Microsoft.SecurityInsights/', '3f1c2a10-6b1e-4c7a-9a01-0c5f1e7d2a09')]",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "Many failed network logons followed by success from the same IP",
+        "description": "Brute force against RDP/SMB that eventually succeeds. Looks for a burst of failures from one remote IP to a device, then a successful logon from that IP.",
+        "severity": "High",
+        "enabled": "[parameters('enableRules')]",
+        "query": "let window = 1h;\nlet minFailures = 20;\nlet failures = DeviceLogonEvents\n    | where Timestamp > ago(window)\n    | where ActionType == \"LogonFailed\" and LogonType in (\"Network\", \"RemoteInteractive\")\n    | where isnotempty(RemoteIP)\n    | summarize Failures = count(), FirstFail = min(Timestamp), TargetedAccounts = dcount(AccountName)\n        by DeviceName, RemoteIP;\nDeviceLogonEvents\n| where Timestamp > ago(window)\n| where ActionType == \"LogonSuccess\" and LogonType in (\"Network\", \"RemoteInteractive\")\n| join kind=inner failures on DeviceName, RemoteIP\n| where Failures >= minFailures and Timestamp > FirstFail\n| summarize SuccessAt = min(Timestamp), Accounts = make_set(AccountName, 5)\n    by DeviceName, RemoteIP, Failures, TargetedAccounts\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionEnabled": false,
+        "suppressionDuration": "PT5H",
+        "tactics": [
+          "CredentialAccess",
+          "InitialAccess"
+        ],
+        "techniques": [
+          "T1021",
+          "T1110"
+        ],
+        "entityMappings": [
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "HostName",
+                "columnName": "DeviceName"
+              }
+            ]
+          },
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "RemoteIP"
+              }
+            ]
+          }
+        ],
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "apiVersion": "2023-02-01",
+      "name": "[concat(parameters('workspace'), '/Microsoft.SecurityInsights/', '3f1c2a10-6b1e-4c7a-9a01-0c5f1e7d2a02')]",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "Successful sign-ins from two countries within a short window",
+        "description": "The same account signs in successfully from two different countries less than the configured number of hours apart. Simple, explainable alternative to a full velocity calculation.",
+        "severity": "Medium",
+        "enabled": "[parameters('enableRules')]",
+        "query": "let maxHours = 2;\nSigninLogs\n| where TimeGenerated > ago(1d)\n| where ResultType == \"0\"\n| extend Country = tostring(LocationDetails.countryOrRegion)\n| where isnotempty(Country)\n| project TimeGenerated, UserPrincipalName, Country, IPAddress, AppDisplayName\n| sort by UserPrincipalName asc, TimeGenerated asc\n| extend PrevUser = prev(UserPrincipalName), PrevCountry = prev(Country),\n         PrevTime = prev(TimeGenerated), PrevIP = prev(IPAddress)\n| where UserPrincipalName == PrevUser and Country != PrevCountry\n| extend HoursApart = datetime_diff('minute', TimeGenerated, PrevTime) / 60.0\n| where HoursApart < maxHours\n| project UserPrincipalName, PrevCountry, PrevIP, PrevTime, Country, IPAddress, TimeGenerated, HoursApart, AppDisplayName\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "P1D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionEnabled": false,
+        "suppressionDuration": "PT5H",
+        "tactics": [
+          "InitialAccess"
+        ],
+        "techniques": [
+          "T1078"
+        ],
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "UserPrincipalName"
+              }
+            ]
+          },
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "IPAddress"
+              }
+            ]
+          }
+        ],
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "apiVersion": "2023-02-01",
+      "name": "[concat(parameters('workspace'), '/Microsoft.SecurityInsights/', '3f1c2a10-6b1e-4c7a-9a01-0c5f1e7d2a03')]",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "MFA fatigue - repeated push denials followed by approval",
+        "description": "An account receives several MFA prompts it denies or ignores, then approves one. Common push-bombing pattern used after password theft.",
+        "severity": "High",
+        "enabled": "[parameters('enableRules')]",
+        "query": "let window = 1h;\nlet minDenied = 3;\n// 500121 = strong auth failed (denied / timed out), 50074 = strong auth required\nlet denied = SigninLogs\n    | where TimeGenerated > ago(window)\n    | where ResultType in (\"500121\", \"50074\")\n    | summarize Denied = count(), FirstDenied = min(TimeGenerated), DeniedIPs = make_set(IPAddress, 5)\n        by UserPrincipalName;\nSigninLogs\n| where TimeGenerated > ago(window)\n| where ResultType == \"0\" and AuthenticationRequirement == \"multiFactorAuthentication\"\n| summarize ApprovedAt = min(TimeGenerated), ApprovedIP = any(IPAddress) by UserPrincipalName\n| join kind=inner denied on UserPrincipalName\n| where Denied >= minDenied and ApprovedAt > FirstDenied\n| project UserPrincipalName, Denied, FirstDenied, ApprovedAt, ApprovedIP, DeniedIPs\n",
+        "queryFrequency": "PT30M",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionEnabled": false,
+        "suppressionDuration": "PT5H",
+        "tactics": [
+          "CredentialAccess"
+        ],
+        "techniques": [
+          "T1621"
+        ],
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "UserPrincipalName"
+              }
+            ]
+          },
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "ApprovedIP"
+              }
+            ]
+          }
+        ],
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "apiVersion": "2023-02-01",
+      "name": "[concat(parameters('workspace'), '/Microsoft.SecurityInsights/', '3f1c2a10-6b1e-4c7a-9a01-0c5f1e7d2a05')]",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "User consent to OAuth app with high-risk permissions",
+        "description": "A user grants consent to an application requesting mail, file, or directory access scopes. Illicit consent grants give attackers persistent API access that survives password resets.",
+        "severity": "Medium",
+        "enabled": "[parameters('enableRules')]",
+        "query": "let riskyScopes = dynamic([\"Mail.Read\", \"Mail.ReadWrite\", \"Mail.Send\", \"Files.ReadWrite.All\",\n    \"Sites.ReadWrite.All\", \"Directory.ReadWrite.All\", \"offline_access\", \"MailboxSettings.ReadWrite\"]);\nAuditLogs\n| where TimeGenerated > ago(1h)\n| where OperationName == \"Consent to application\"\n| extend User = tostring(InitiatedBy.user.userPrincipalName)\n| extend App = tostring(TargetResources[0].displayName)\n| mv-expand Prop = TargetResources[0].modifiedProperties\n| where tostring(Prop.displayName) == \"ConsentAction.Permissions\"\n| extend Permissions = tostring(Prop.newValue)\n| where Permissions has_any (riskyScopes)\n| project TimeGenerated, User, App, Permissions, CorrelationId\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionEnabled": false,
+        "suppressionDuration": "PT5H",
+        "tactics": [
+          "Persistence",
+          "CredentialAccess"
+        ],
+        "techniques": [
+          "T1528"
+        ],
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "User"
+              }
+            ]
+          }
+        ],
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "apiVersion": "2023-02-01",
+      "name": "[concat(parameters('workspace'), '/Microsoft.SecurityInsights/', '3f1c2a10-6b1e-4c7a-9a01-0c5f1e7d2a01')]",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "Password spray against Entra ID",
+        "description": "One source IP fails sign-in for many distinct accounts in a short window using bad-password errors. Classic low-and-slow spray pattern.",
+        "severity": "Medium",
+        "enabled": "[parameters('enableRules')]",
+        "query": "let window = 1h;\nlet minAccounts = 10;\n// 50126 = invalid username or password, 50053 = account locked (smart lockout)\nSigninLogs\n| where TimeGenerated > ago(window)\n| where ResultType in (\"50126\", \"50053\")\n| summarize FailedAccounts = dcount(UserPrincipalName),\n            Attempts = count(),\n            SampleUsers = make_set(UserPrincipalName, 10),\n            Apps = make_set(AppDisplayName, 5),\n            FirstSeen = min(TimeGenerated), LastSeen = max(TimeGenerated)\n    by IPAddress, Location = tostring(LocationDetails.countryOrRegion)\n| where FailedAccounts >= minAccounts\n| order by FailedAccounts desc\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionEnabled": false,
+        "suppressionDuration": "PT5H",
+        "tactics": [
+          "CredentialAccess"
+        ],
+        "techniques": [
+          "T1110"
+        ],
+        "entityMappings": [
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "IPAddress"
+              }
+            ]
+          }
+        ],
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "apiVersion": "2023-02-01",
+      "name": "[concat(parameters('workspace'), '/Microsoft.SecurityInsights/', '3f1c2a10-6b1e-4c7a-9a01-0c5f1e7d2a04')]",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "Privileged Entra ID role assigned outside PIM",
+        "description": "A highly privileged directory role is added directly to a user or service principal, rather than through a Privileged Identity Management activation.",
+        "severity": "High",
+        "enabled": "[parameters('enableRules')]",
+        "query": "let privilegedRoles = dynamic([\"Global Administrator\", \"Privileged Role Administrator\",\n    \"Security Administrator\", \"Exchange Administrator\", \"Application Administrator\",\n    \"Cloud Application Administrator\", \"User Administrator\", \"Conditional Access Administrator\"]);\nAuditLogs\n| where TimeGenerated > ago(1h)\n| where OperationName == \"Add member to role\"\n| extend Initiator = coalesce(tostring(InitiatedBy.user.userPrincipalName), tostring(InitiatedBy.app.displayName))\n| mv-expand Target = TargetResources\n| extend TargetName = coalesce(tostring(Target.userPrincipalName), tostring(Target.displayName))\n| mv-expand Prop = Target.modifiedProperties\n| where tostring(Prop.displayName) == \"Role.DisplayName\"\n| extend Role = trim('\"', tostring(Prop.newValue))\n| where Role in (privilegedRoles)\n| where Initiator !~ \"MS-PIM\"   // PIM activations are logged with the PIM service as initiator\n| project TimeGenerated, Initiator, TargetName, Role, CorrelationId\n",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionEnabled": false,
+        "suppressionDuration": "PT5H",
+        "tactics": [
+          "PrivilegeEscalation",
+          "Persistence"
+        ],
+        "techniques": [
+          "T1098"
+        ],
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "TargetName"
+              }
+            ]
+          }
+        ],
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        }
+      }
+    }
+  ]
+}
