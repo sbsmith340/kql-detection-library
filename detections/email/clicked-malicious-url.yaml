@@ -1,0 +1,33 @@
+id: 3f1c2a10-6b1e-4c7a-9a01-0c5f1e7d2a10
+name: User clicked through a URL later classified as malicious
+description: >
+  Safe Links allowed a click that Defender for Office 365 later (or at click
+  time) identified as phishing or malware. These users need password reset and
+  session revocation review.
+severity: High
+status: lab-test-pending
+tactics: [InitialAccess]
+techniques: [T1566.002, T1204.001]
+data_sources: [UrlClickEvents, EmailEvents]
+query_frequency: PT1H
+query_period: P1D
+trigger_threshold: 0
+query: |
+  UrlClickEvents
+  | where Timestamp > ago(1d)
+  | where ActionType in ("ClickAllowed", "UrlScanInProgress") or IsClickedThrough == true
+  | where ThreatTypes has_any ("Phish", "Malware")
+  | join kind=leftouter (
+      EmailEvents
+      | where Timestamp > ago(2d)
+      | project NetworkMessageId, Subject, SenderFromAddress, DeliveryAction
+    ) on NetworkMessageId
+  | project Timestamp, AccountUpn, Url, ActionType, IsClickedThrough, ThreatTypes, Subject, SenderFromAddress, IPAddress
+entity_mappings:
+  - entityType: Account
+    fieldMappings: [{identifier: FullName, columnName: AccountUpn}]
+  - entityType: URL
+    fieldMappings: [{identifier: Url, columnName: Url}]
+tuning: Requires Defender for Office 365 Plan 2 Safe Links with click tracking enabled.
+false_positives: Security team members detonating reported links from a work account.
+test: Send the vendor-provided phishing test URL to a lab mailbox and click through the warning.

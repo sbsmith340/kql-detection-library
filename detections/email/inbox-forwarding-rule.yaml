@@ -1,0 +1,33 @@
+id: 3f1c2a10-6b1e-4c7a-9a01-0c5f1e7d2a11
+name: Inbox rule forwards or redirects mail to an external address
+description: >
+  A mailbox rule is created or changed to forward, redirect, or delete mail,
+  often to hide replies from the victim during business email compromise.
+severity: Medium
+status: lab-test-pending
+tactics: [Collection, Exfiltration]
+techniques: [T1114.003]
+data_sources: [OfficeActivity]
+query_frequency: PT1H
+query_period: PT1H
+trigger_threshold: 0
+query: |
+  let internalDomains = dynamic(["contoso.com"]);   // replace with your accepted domains
+  OfficeActivity
+  | where TimeGenerated > ago(1h)
+  | where Operation in ("New-InboxRule", "Set-InboxRule", "UpdateInboxRules")
+  | extend Params = tostring(Parameters)
+  | where Params has_any ("ForwardTo", "ForwardAsAttachmentTo", "RedirectTo", "DeleteMessage", "MoveToFolder")
+  | extend ForwardAddress = extract(@"(?i)(?:ForwardTo|ForwardAsAttachmentTo|RedirectTo)""?,""Value"":""([^""]+)", 1, Params)
+  | extend ForwardDomain = tostring(split(ForwardAddress, "@")[1])
+  | where isempty(ForwardDomain) or not(ForwardDomain in~ (internalDomains))
+  | project TimeGenerated, UserId, Operation, ForwardAddress, ClientIP, Params
+entity_mappings:
+  - entityType: Account
+    fieldMappings: [{identifier: FullName, columnName: UserId}]
+tuning: >
+  Rules that only delete or move mail (no forwarding) still fire, because
+  attackers use them to hide security notifications. Block external
+  auto-forwarding in the outbound spam policy as the preventive control.
+false_positives: Users forwarding to a personal address (often a policy violation in itself).
+test: As a lab user, create an inbox rule in Outlook on the web forwarding all mail to an external test address.
