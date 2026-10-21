@@ -1,0 +1,19 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pyyaml pytest
+      - name: Validate detections and check generated files are current
+        run: python tools/build.py --check
+      - run: pytest -q tests
+      - run: python -m json.tool deploy/analytics-rules.json > /dev/null
