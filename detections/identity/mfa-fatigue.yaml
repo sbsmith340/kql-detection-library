@@ -1,0 +1,39 @@
+id: 3f1c2a10-6b1e-4c7a-9a01-0c5f1e7d2a03
+name: MFA fatigue - repeated push denials followed by approval
+description: >
+  An account receives several MFA prompts it denies or ignores, then approves
+  one. Common push-bombing pattern used after password theft.
+severity: High
+status: lab-test-pending
+tactics: [CredentialAccess]
+techniques: [T1621]
+data_sources: [SigninLogs]
+query_frequency: PT30M
+query_period: PT1H
+trigger_threshold: 0
+query: |
+  let window = 1h;
+  let minDenied = 3;
+  // 500121 = strong auth failed (denied / timed out), 50074 = strong auth required
+  let denied = SigninLogs
+      | where TimeGenerated > ago(window)
+      | where ResultType in ("500121", "50074")
+      | summarize Denied = count(), FirstDenied = min(TimeGenerated), DeniedIPs = make_set(IPAddress, 5)
+          by UserPrincipalName;
+  SigninLogs
+  | where TimeGenerated > ago(window)
+  | where ResultType == "0" and AuthenticationRequirement == "multiFactorAuthentication"
+  | summarize ApprovedAt = min(TimeGenerated), ApprovedIP = any(IPAddress) by UserPrincipalName
+  | join kind=inner denied on UserPrincipalName
+  | where Denied >= minDenied and ApprovedAt > FirstDenied
+  | project UserPrincipalName, Denied, FirstDenied, ApprovedAt, ApprovedIP, DeniedIPs
+entity_mappings:
+  - entityType: Account
+    fieldMappings: [{identifier: FullName, columnName: UserPrincipalName}]
+  - entityType: IP
+    fieldMappings: [{identifier: Address, columnName: ApprovedIP}]
+tuning: >
+  Number matching in Microsoft Authenticator reduces this risk; keep the rule as
+  a backstop. Raise minDenied if users routinely miss prompts.
+false_positives: A user who missed several prompts on a new phone, then approved.
+test: Trigger and deny four push prompts for a lab account, then approve the fifth.

@@ -1,0 +1,41 @@
+id: 3f1c2a10-6b1e-4c7a-9a01-0c5f1e7d2a02
+name: Successful sign-ins from two countries within a short window
+description: >
+  The same account signs in successfully from two different countries less than
+  the configured number of hours apart. Simple, explainable alternative to a
+  full velocity calculation.
+severity: Medium
+status: lab-test-pending
+tactics: [InitialAccess]
+techniques: [T1078.004]
+data_sources: [SigninLogs]
+query_frequency: PT1H
+query_period: P1D
+trigger_threshold: 0
+query: |
+  let maxHours = 2;
+  SigninLogs
+  | where TimeGenerated > ago(1d)
+  | where ResultType == "0"
+  | extend Country = tostring(LocationDetails.countryOrRegion)
+  | where isnotempty(Country)
+  | project TimeGenerated, UserPrincipalName, Country, IPAddress, AppDisplayName
+  | sort by UserPrincipalName asc, TimeGenerated asc
+  | extend PrevUser = prev(UserPrincipalName), PrevCountry = prev(Country),
+           PrevTime = prev(TimeGenerated), PrevIP = prev(IPAddress)
+  | where UserPrincipalName == PrevUser and Country != PrevCountry
+  | extend HoursApart = datetime_diff('minute', TimeGenerated, PrevTime) / 60.0
+  | where HoursApart < maxHours
+  | project UserPrincipalName, PrevCountry, PrevIP, PrevTime, Country, IPAddress, TimeGenerated, HoursApart, AppDisplayName
+entity_mappings:
+  - entityType: Account
+    fieldMappings: [{identifier: FullName, columnName: UserPrincipalName}]
+  - entityType: IP
+    fieldMappings: [{identifier: Address, columnName: IPAddress}]
+tuning: >
+  Corporate VPNs and mobile carriers can geolocate oddly. Join to a watchlist of
+  sanctioned VPN egress ranges and exclude them.
+false_positives: Split-tunnel VPN, travel with a hotspot, cloud desktops in another region.
+test: >
+  Sign in a test account normally, then again within 30 minutes through a VPN
+  exit node in another country.

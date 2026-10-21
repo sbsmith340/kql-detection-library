@@ -1,0 +1,35 @@
+id: 3f1c2a10-6b1e-4c7a-9a01-0c5f1e7d2a05
+name: User consent to OAuth app with high-risk permissions
+description: >
+  A user grants consent to an application requesting mail, file, or directory
+  access scopes. Illicit consent grants give attackers persistent API access
+  that survives password resets.
+severity: Medium
+status: lab-test-pending
+tactics: [Persistence, CredentialAccess]
+techniques: [T1528]
+data_sources: [AuditLogs]
+query_frequency: PT1H
+query_period: PT1H
+trigger_threshold: 0
+query: |
+  let riskyScopes = dynamic(["Mail.Read", "Mail.ReadWrite", "Mail.Send", "Files.ReadWrite.All",
+      "Sites.ReadWrite.All", "Directory.ReadWrite.All", "offline_access", "MailboxSettings.ReadWrite"]);
+  AuditLogs
+  | where TimeGenerated > ago(1h)
+  | where OperationName == "Consent to application"
+  | extend User = tostring(InitiatedBy.user.userPrincipalName)
+  | extend App = tostring(TargetResources[0].displayName)
+  | mv-expand Prop = TargetResources[0].modifiedProperties
+  | where tostring(Prop.displayName) == "ConsentAction.Permissions"
+  | extend Permissions = tostring(Prop.newValue)
+  | where Permissions has_any (riskyScopes)
+  | project TimeGenerated, User, App, Permissions, CorrelationId
+entity_mappings:
+  - entityType: Account
+    fieldMappings: [{identifier: FullName, columnName: User}]
+tuning: >
+  The durable fix is restricting user consent to verified publishers. Exclude
+  apps already approved in your app catalog by display name or app ID.
+false_positives: Legitimate productivity add-ins a user installs themselves.
+test: Register a lab app requesting Mail.Read and consent to it as a non-admin test user.

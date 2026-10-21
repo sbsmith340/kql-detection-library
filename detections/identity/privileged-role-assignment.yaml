@@ -1,0 +1,37 @@
+id: 3f1c2a10-6b1e-4c7a-9a01-0c5f1e7d2a04
+name: Privileged Entra ID role assigned outside PIM
+description: >
+  A highly privileged directory role is added directly to a user or service
+  principal, rather than through a Privileged Identity Management activation.
+severity: High
+status: lab-test-pending
+tactics: [PrivilegeEscalation, Persistence]
+techniques: [T1098.003]
+data_sources: [AuditLogs]
+query_frequency: PT1H
+query_period: PT1H
+trigger_threshold: 0
+query: |
+  let privilegedRoles = dynamic(["Global Administrator", "Privileged Role Administrator",
+      "Security Administrator", "Exchange Administrator", "Application Administrator",
+      "Cloud Application Administrator", "User Administrator", "Conditional Access Administrator"]);
+  AuditLogs
+  | where TimeGenerated > ago(1h)
+  | where OperationName == "Add member to role"
+  | extend Initiator = coalesce(tostring(InitiatedBy.user.userPrincipalName), tostring(InitiatedBy.app.displayName))
+  | mv-expand Target = TargetResources
+  | extend TargetName = coalesce(tostring(Target.userPrincipalName), tostring(Target.displayName))
+  | mv-expand Prop = Target.modifiedProperties
+  | where tostring(Prop.displayName) == "Role.DisplayName"
+  | extend Role = trim('"', tostring(Prop.newValue))
+  | where Role in (privilegedRoles)
+  | where Initiator !~ "MS-PIM"   // PIM activations are logged with the PIM service as initiator
+  | project TimeGenerated, Initiator, TargetName, Role, CorrelationId
+entity_mappings:
+  - entityType: Account
+    fieldMappings: [{identifier: FullName, columnName: TargetName}]
+tuning: >
+  If PIM is not in use, every assignment fires; that is intended. Maintain the
+  role list to match your tiering model.
+false_positives: Break-glass account maintenance; planned admin onboarding.
+test: In a lab tenant, assign Security Administrator to a test user directly in the portal.
