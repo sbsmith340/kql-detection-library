@@ -1,0 +1,32 @@
+id: 3f1c2a10-6b1e-4c7a-9a01-0c5f1e7d2a08
+name: Office application spawns a script interpreter or LOLBin
+description: >
+  Word, Excel, PowerPoint or Outlook launching cmd, PowerShell, script hosts, or
+  common download/execution binaries. Typical of macro and exploit-based
+  initial access.
+severity: High
+status: lab-test-pending
+tactics: [Execution, InitialAccess]
+techniques: [T1204.002, T1566.001]
+data_sources: [DeviceProcessEvents]
+query_frequency: PT1H
+query_period: PT1H
+trigger_threshold: 0
+query: |
+  let officeApps = dynamic(["winword.exe", "excel.exe", "powerpnt.exe", "outlook.exe", "onenote.exe"]);
+  let children = dynamic(["cmd.exe", "powershell.exe", "pwsh.exe", "wscript.exe", "cscript.exe", "mshta.exe",
+      "rundll32.exe", "regsvr32.exe", "certutil.exe", "bitsadmin.exe", "curl.exe"]);
+  DeviceProcessEvents
+  | where Timestamp > ago(1h)
+  | where InitiatingProcessFileName in~ (officeApps)
+  | where FileName in~ (children)
+  | project Timestamp, DeviceName, AccountName, InitiatingProcessFileName, InitiatingProcessCommandLine,
+            FileName, ProcessCommandLine, ReportId, DeviceId
+entity_mappings:
+  - entityType: Host
+    fieldMappings: [{identifier: HostName, columnName: DeviceName}]
+  - entityType: Account
+    fieldMappings: [{identifier: Name, columnName: AccountName}]
+tuning: Exclude specific signed add-ins by full child command line only after review.
+false_positives: Legacy Excel macros used by finance teams that shell out to batch files.
+test: Open a lab .docm whose AutoOpen macro runs Shell("cmd.exe /c whoami").

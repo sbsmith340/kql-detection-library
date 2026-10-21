@@ -1,0 +1,33 @@
+id: 3f1c2a10-6b1e-4c7a-9a01-0c5f1e7d2a06
+name: PowerShell launched with an encoded command
+description: >
+  PowerShell started with -EncodedCommand (or a short alias of it). Encoding is
+  a common way to hide download cradles and payloads from simple inspection.
+  The rule decodes the payload so the analyst sees it immediately.
+severity: Medium
+status: lab-test-pending
+tactics: [Execution, DefenseEvasion]
+techniques: [T1059.001, T1027]
+data_sources: [DeviceProcessEvents]
+query_frequency: PT1H
+query_period: PT1H
+trigger_threshold: 0
+query: |
+  DeviceProcessEvents
+  | where Timestamp > ago(1h)
+  | where FileName in~ ("powershell.exe", "pwsh.exe")
+  | where ProcessCommandLine matches regex @"(?i)\s-e(nc|ncodedcommand|c)?\s+[A-Za-z0-9+/=]{20,}"
+  | extend Encoded = extract(@"(?i)\s-e(?:nc|ncodedcommand|c)?\s+([A-Za-z0-9+/=]{20,})", 1, ProcessCommandLine)
+  | extend Decoded = replace_string(base64_decode_tostring(Encoded), "\u0000", "")
+  | project Timestamp, DeviceName, AccountName, InitiatingProcessFileName, ProcessCommandLine, Decoded, ReportId, DeviceId
+entity_mappings:
+  - entityType: Host
+    fieldMappings: [{identifier: HostName, columnName: DeviceName}]
+  - entityType: Account
+    fieldMappings: [{identifier: Name, columnName: AccountName}]
+tuning: >
+  Some management agents (SCCM, RMM tools) use encoded commands. Exclude by
+  InitiatingProcessFileName after confirming the parent is legitimate, never by
+  command-line content alone.
+false_positives: Configuration management and RMM agents.
+test: Run powershell -enc VwByAGkAdABlAC0ATwB1AHQAcAB1AHQAIAAiAGwAYQBiACIA on a lab endpoint (Write-Output "lab").

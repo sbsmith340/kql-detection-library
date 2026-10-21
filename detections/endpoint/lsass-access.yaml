@@ -1,0 +1,34 @@
+id: 3f1c2a10-6b1e-4c7a-9a01-0c5f1e7d2a07
+name: Credential dumping tool or LSASS dump via comsvcs.dll
+description: >
+  Detects the most common living-off-the-land LSASS dump (rundll32 calling
+  comsvcs.dll MiniDump) and well-known credential dumping tool names or
+  command-line markers.
+severity: High
+status: lab-test-pending
+tactics: [CredentialAccess]
+techniques: [T1003.001]
+data_sources: [DeviceProcessEvents]
+query_frequency: PT1H
+query_period: PT1H
+trigger_threshold: 0
+query: |
+  DeviceProcessEvents
+  | where Timestamp > ago(1h)
+  | where (FileName =~ "rundll32.exe" and ProcessCommandLine has "comsvcs" and ProcessCommandLine has_any ("MiniDump", "#24"))
+       or (FileName in~ ("procdump.exe", "procdump64.exe") and ProcessCommandLine has "lsass")
+       or ProcessCommandLine has_any ("sekurlsa::", "lsadump::", "privilege::debug")
+  | project Timestamp, DeviceName, AccountName, FileName, ProcessCommandLine, InitiatingProcessFileName, ReportId, DeviceId
+entity_mappings:
+  - entityType: Host
+    fieldMappings: [{identifier: HostName, columnName: DeviceName}]
+  - entityType: Account
+    fieldMappings: [{identifier: Name, columnName: AccountName}]
+tuning: >
+  Defender for Endpoint blocks most of this when attack surface reduction rule
+  "Block credential stealing from LSASS" is on. Keep the rule to catch audit-mode
+  or excluded devices.
+false_positives: Support engineers capturing crash dumps with procdump during troubleshooting.
+test: >
+  On an isolated lab VM with ASR in audit mode, run
+  rundll32.exe C:\windows\System32\comsvcs.dll, MiniDump <lsass pid> C:\temp\x.dmp full

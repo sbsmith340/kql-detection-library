@@ -1,0 +1,39 @@
+id: 3f1c2a10-6b1e-4c7a-9a01-0c5f1e7d2a09
+name: Many failed network logons followed by success from the same IP
+description: >
+  Brute force against RDP/SMB that eventually succeeds. Looks for a burst of
+  failures from one remote IP to a device, then a successful logon from that IP.
+severity: High
+status: lab-test-pending
+tactics: [CredentialAccess, InitialAccess]
+techniques: [T1110.001, T1021.001]
+data_sources: [DeviceLogonEvents]
+query_frequency: PT1H
+query_period: PT1H
+trigger_threshold: 0
+query: |
+  let window = 1h;
+  let minFailures = 20;
+  let failures = DeviceLogonEvents
+      | where Timestamp > ago(window)
+      | where ActionType == "LogonFailed" and LogonType in ("Network", "RemoteInteractive")
+      | where isnotempty(RemoteIP)
+      | summarize Failures = count(), FirstFail = min(Timestamp), TargetedAccounts = dcount(AccountName)
+          by DeviceName, RemoteIP;
+  DeviceLogonEvents
+  | where Timestamp > ago(window)
+  | where ActionType == "LogonSuccess" and LogonType in ("Network", "RemoteInteractive")
+  | join kind=inner failures on DeviceName, RemoteIP
+  | where Failures >= minFailures and Timestamp > FirstFail
+  | summarize SuccessAt = min(Timestamp), Accounts = make_set(AccountName, 5)
+      by DeviceName, RemoteIP, Failures, TargetedAccounts
+entity_mappings:
+  - entityType: Host
+    fieldMappings: [{identifier: HostName, columnName: DeviceName}]
+  - entityType: IP
+    fieldMappings: [{identifier: Address, columnName: RemoteIP}]
+tuning: >
+  Any internet-exposed RDP is itself a finding; pair with an exposure query in
+  Defender Vulnerability Management.
+false_positives: Vulnerability scanners performing authenticated scans with a wrong credential.
+test: From a lab attacker VM, run 25 failed RDP attempts then one correct password against a lab host.
