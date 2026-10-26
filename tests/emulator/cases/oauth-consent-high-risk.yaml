@@ -1,0 +1,26 @@
+detection: identity/oauth-consent-high-risk.yaml
+cases:
+  - name: user consents to an app requesting mail read-write
+    expect: hit
+    tables:
+      AuditLogs:
+        - TimeGenerated: -20m
+          OperationName: Consent to application
+          CorrelationId: c-001
+          InitiatedBy: {user: {userPrincipalName: ana.ruiz@contoso.com}}
+          TargetResources:
+            - displayName: Mail Organizer Pro
+              modifiedProperties:
+                - {displayName: ConsentAction.Permissions, newValue: "[] => [[Scope: Mail.ReadWrite Mail.Send offline_access User.Read, ConsentType: Principal]]"}
+  - name: user consents to sign-in and profile only
+    expect: miss
+    tables:
+      AuditLogs:
+        - TimeGenerated: -20m
+          OperationName: Consent to application
+          CorrelationId: c-002
+          InitiatedBy: {user: {userPrincipalName: ana.ruiz@contoso.com}}
+          TargetResources:
+            - displayName: Expense Tracker
+              modifiedProperties:
+                - {displayName: ConsentAction.Permissions, newValue: "[] => [[Scope: openid profile User.Read, ConsentType: Principal]]"}

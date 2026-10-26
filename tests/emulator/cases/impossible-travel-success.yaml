@@ -1,0 +1,20 @@
+detection: identity/impossible-travel-success.yaml
+cases:
+  - name: US then Netherlands sign-in one hour apart
+    expect: hit
+    tables:
+      SigninLogs:
+        - {TimeGenerated: -90m, UserPrincipalName: ana.ruiz@contoso.com, ResultType: "0", IPAddress: 192.0.2.10, LocationDetails: {countryOrRegion: US}, AppDisplayName: Outlook}
+        - {TimeGenerated: -30m, UserPrincipalName: ana.ruiz@contoso.com, ResultType: "0", IPAddress: 198.51.100.23, LocationDetails: {countryOrRegion: NL}, AppDisplayName: Outlook}
+  - name: US then Netherlands four hours apart
+    expect: miss
+    tables:
+      SigninLogs:
+        - {TimeGenerated: -5h, UserPrincipalName: ana.ruiz@contoso.com, ResultType: "0", IPAddress: 192.0.2.10, LocationDetails: {countryOrRegion: US}}
+        - {TimeGenerated: -1h, UserPrincipalName: ana.ruiz@contoso.com, ResultType: "0", IPAddress: 198.51.100.23, LocationDetails: {countryOrRegion: NL}}
+  - name: two different users in two countries
+    expect: miss
+    tables:
+      SigninLogs:
+        - {TimeGenerated: -90m, UserPrincipalName: ana.ruiz@contoso.com, ResultType: "0", IPAddress: 192.0.2.10, LocationDetails: {countryOrRegion: US}}
+        - {TimeGenerated: -60m, UserPrincipalName: lars.berg@contoso.com, ResultType: "0", IPAddress: 198.51.100.40, LocationDetails: {countryOrRegion: NL}}

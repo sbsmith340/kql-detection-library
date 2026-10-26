@@ -1,0 +1,20 @@
+detection: endpoint/lsass-access.yaml
+cases:
+  - name: comsvcs MiniDump of LSASS
+    expect: hit
+    tables:
+      DeviceProcessEvents:
+        - {Timestamp: -10m, DeviceId: d-002, DeviceName: srv-app-01, AccountName: svc-backup, FileName: rundll32.exe, InitiatingProcessFileName: cmd.exe, ReportId: 2001,
+           ProcessCommandLine: "rundll32.exe C:\\Windows\\System32\\comsvcs.dll, MiniDump 624 C:\\Windows\\Temp\\l.dmp full"}
+  - name: procdump against lsass
+    expect: hit
+    tables:
+      DeviceProcessEvents:
+        - {Timestamp: -10m, DeviceId: d-002, DeviceName: srv-app-01, AccountName: svc-backup, FileName: procdump64.exe, InitiatingProcessFileName: cmd.exe, ReportId: 2002,
+           ProcessCommandLine: "procdump64.exe -accepteula -ma lsass.exe C:\\Windows\\Temp\\out.dmp"}
+  - name: ordinary rundll32 control panel call
+    expect: miss
+    tables:
+      DeviceProcessEvents:
+        - {Timestamp: -10m, DeviceId: d-003, DeviceName: wks-020, AccountName: kim.nguyen, FileName: rundll32.exe, InitiatingProcessFileName: explorer.exe, ReportId: 2003,
+           ProcessCommandLine: "rundll32.exe shell32.dll,Control_RunDLL desk.cpl"}

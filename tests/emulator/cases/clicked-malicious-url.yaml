@@ -1,0 +1,19 @@
+detection: email/clicked-malicious-url.yaml
+cases:
+  - name: user clicks through a phishing link
+    expect: hit
+    tables:
+      UrlClickEvents:
+        - {Timestamp: -2h, AccountUpn: ana.ruiz@contoso.com, Url: "https://fabrikarn-sharepoint.com/s/q3", ActionType: ClickAllowed, IsClickedThrough: true, ThreatTypes: Phish, NetworkMessageId: m-001, IPAddress: 192.0.2.10}
+      EmailEvents:
+        - {Timestamp: -3h, NetworkMessageId: m-001, Subject: "Shared with you: Q3 vendor payment schedule", SenderFromAddress: docs-share@fabrikam-invoices.com, DeliveryAction: Junked}
+  - name: Safe Links blocks the click
+    expect: miss
+    tables:
+      UrlClickEvents:
+        - {Timestamp: -2h, AccountUpn: kevin.ng@contoso.com, Url: "https://fabrikarn-sharepoint.com/s/q3", ActionType: ClickBlocked, IsClickedThrough: false, ThreatTypes: Phish, NetworkMessageId: m-001, IPAddress: 192.0.2.11}
+  - name: clean link clicked
+    expect: miss
+    tables:
+      UrlClickEvents:
+        - {Timestamp: -2h, AccountUpn: ana.ruiz@contoso.com, Url: "https://contoso.sharepoint.com/sites/hr", ActionType: ClickAllowed, IsClickedThrough: false, ThreatTypes: "", NetworkMessageId: m-002, IPAddress: 192.0.2.10}

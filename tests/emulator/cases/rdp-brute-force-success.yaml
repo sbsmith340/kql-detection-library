@@ -1,0 +1,19 @@
+detection: endpoint/rdp-brute-force-success.yaml
+cases:
+  - name: 25 failures then a success from the same IP
+    expect: hit
+    tables:
+      DeviceLogonEvents:
+        - {Timestamp: -40m, DeviceName: srv-jump-01, ActionType: LogonFailed, LogonType: RemoteInteractive, RemoteIP: 203.0.113.66, AccountName: "admin{i}", _repeat: 25}
+        - {Timestamp: -10m, DeviceName: srv-jump-01, ActionType: LogonSuccess, LogonType: RemoteInteractive, RemoteIP: 203.0.113.66, AccountName: administrator}
+  - name: 25 failures and no success
+    expect: miss
+    tables:
+      DeviceLogonEvents:
+        - {Timestamp: -40m, DeviceName: srv-jump-01, ActionType: LogonFailed, LogonType: RemoteInteractive, RemoteIP: 203.0.113.66, AccountName: "admin{i}", _repeat: 25}
+  - name: a few typos then a success
+    expect: miss
+    tables:
+      DeviceLogonEvents:
+        - {Timestamp: -40m, DeviceName: srv-jump-01, ActionType: LogonFailed, LogonType: RemoteInteractive, RemoteIP: 192.0.2.50, AccountName: kim.nguyen, _repeat: 3}
+        - {Timestamp: -38m, DeviceName: srv-jump-01, ActionType: LogonSuccess, LogonType: RemoteInteractive, RemoteIP: 192.0.2.50, AccountName: kim.nguyen}

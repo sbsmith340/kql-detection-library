@@ -1,0 +1,29 @@
+detection: email/inbox-forwarding-rule.yaml
+cases:
+  - name: new rule forwards to an external address
+    expect: hit
+    tables:
+      OfficeActivity:
+        - TimeGenerated: -10m
+          Operation: New-InboxRule
+          UserId: ana.ruiz@contoso.com
+          ClientIP: 198.51.100.23
+          Parameters: [{Name: Name, Value: "."}, {Name: ForwardTo, Value: billing@outlook-mailbox.example}, {Name: SubjectOrBodyContainsWords, Value: invoice;payment}]
+  - name: new rule hides mail without forwarding (BEC pattern)
+    expect: hit
+    tables:
+      OfficeActivity:
+        - TimeGenerated: -10m
+          Operation: New-InboxRule
+          UserId: ana.ruiz@contoso.com
+          ClientIP: 198.51.100.23
+          Parameters: [{Name: Name, Value: "."}, {Name: MoveToFolder, Value: RSS Feeds}, {Name: MarkAsRead, Value: "True"}]
+  - name: rule forwards to a colleague in the same domain
+    expect: miss
+    tables:
+      OfficeActivity:
+        - TimeGenerated: -10m
+          Operation: Set-InboxRule
+          UserId: ana.ruiz@contoso.com
+          ClientIP: 192.0.2.10
+          Parameters: [{Name: Name, Value: Vacation}, {Name: ForwardTo, Value: lars.berg@contoso.com}]

@@ -1,0 +1,14 @@
+detection: identity/mfa-fatigue.yaml
+cases:
+  - name: four push denials then an approval
+    expect: hit
+    tables:
+      SigninLogs:
+        - {TimeGenerated: -40m, UserPrincipalName: ana.ruiz@contoso.com, ResultType: "500121", IPAddress: 198.51.100.23, _repeat: 4}
+        - {TimeGenerated: -20m, UserPrincipalName: ana.ruiz@contoso.com, ResultType: "0", IPAddress: 198.51.100.23, AuthenticationRequirement: multiFactorAuthentication}
+  - name: two missed prompts then an approval
+    expect: miss
+    tables:
+      SigninLogs:
+        - {TimeGenerated: -40m, UserPrincipalName: ana.ruiz@contoso.com, ResultType: "500121", IPAddress: 203.0.113.10, _repeat: 2}
+        - {TimeGenerated: -20m, UserPrincipalName: ana.ruiz@contoso.com, ResultType: "0", IPAddress: 203.0.113.10, AuthenticationRequirement: multiFactorAuthentication}

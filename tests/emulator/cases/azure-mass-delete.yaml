@@ -1,0 +1,17 @@
+detection: cloud/azure-mass-delete.yaml
+cases:
+  - name: twelve resource deletions by one caller
+    expect: hit
+    tables:
+      AzureActivity:
+        - {TimeGenerated: -20m, OperationNameValue: MICROSOFT.COMPUTE/VIRTUALMACHINES/DELETE, ActivityStatusValue: Success, Caller: ops@contoso.com, CallerIpAddress: 198.51.100.77, SubscriptionId: sub-001, ResourceProviderValue: MICROSOFT.COMPUTE, _ResourceId: "/subscriptions/sub-001/resourcegroups/rg-app/providers/microsoft.compute/virtualmachines/vm{i}", ResourceGroup: rg-app, _repeat: 12}
+  - name: five deletions
+    expect: miss
+    tables:
+      AzureActivity:
+        - {TimeGenerated: -20m, OperationNameValue: MICROSOFT.COMPUTE/VIRTUALMACHINES/DELETE, ActivityStatusValue: Success, Caller: ops@contoso.com, CallerIpAddress: 198.51.100.77, SubscriptionId: sub-001, ResourceProviderValue: MICROSOFT.COMPUTE, _ResourceId: "/subscriptions/sub-001/resourcegroups/rg-app/providers/microsoft.compute/virtualmachines/vm{i}", ResourceGroup: rg-app, _repeat: 5}
+  - name: twelve deletions that failed
+    expect: miss
+    tables:
+      AzureActivity:
+        - {TimeGenerated: -20m, OperationNameValue: MICROSOFT.COMPUTE/VIRTUALMACHINES/DELETE, ActivityStatusValue: Failure, Caller: ops@contoso.com, CallerIpAddress: 198.51.100.77, SubscriptionId: sub-001, ResourceGroup: rg-app, _repeat: 12}

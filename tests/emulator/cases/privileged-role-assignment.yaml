@@ -1,0 +1,38 @@
+detection: identity/privileged-role-assignment.yaml
+cases:
+  - name: admin adds a user to Global Administrator
+    expect: hit
+    tables:
+      AuditLogs:
+        - TimeGenerated: -15m
+          OperationName: Add member to role
+          CorrelationId: r-001
+          InitiatedBy: {user: {userPrincipalName: it.admin@contoso.com}}
+          TargetResources:
+            - userPrincipalName: new.hire@contoso.com
+              modifiedProperties:
+                - {displayName: Role.DisplayName, newValue: '"Global Administrator"'}
+  - name: PIM activation of the same role
+    expect: miss
+    tables:
+      AuditLogs:
+        - TimeGenerated: -15m
+          OperationName: Add member to role
+          CorrelationId: r-002
+          InitiatedBy: {app: {displayName: MS-PIM}}
+          TargetResources:
+            - userPrincipalName: it.admin@contoso.com
+              modifiedProperties:
+                - {displayName: Role.DisplayName, newValue: '"Global Administrator"'}
+  - name: non-privileged role
+    expect: miss
+    tables:
+      AuditLogs:
+        - TimeGenerated: -15m
+          OperationName: Add member to role
+          CorrelationId: r-003
+          InitiatedBy: {user: {userPrincipalName: it.admin@contoso.com}}
+          TargetResources:
+            - userPrincipalName: analyst@contoso.com
+              modifiedProperties:
+                - {displayName: Role.DisplayName, newValue: '"Reports Reader"'}

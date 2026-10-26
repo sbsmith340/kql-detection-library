@@ -1,0 +1,34 @@
+detection: cloud/nsg-opens-management-port.yaml
+cases:
+  - name: rule allows RDP from anywhere
+    expect: hit
+    tables:
+      AzureActivity:
+        - TimeGenerated: -10m
+          OperationNameValue: MICROSOFT.NETWORK/NETWORKSECURITYGROUPS/SECURITYRULES/WRITE
+          ActivityStatusValue: Success
+          Caller: dev@contoso.com
+          CallerIpAddress: 198.51.100.5
+          _ResourceId: /subscriptions/sub-001/resourcegroups/rg-net/providers/microsoft.network/networksecuritygroups/nsg-jump/securityrules/allow-rdp
+          Properties:
+            requestbody__json: {properties: {access: Allow, direction: Inbound, sourceAddressPrefix: "*", destinationPortRange: "3389", protocol: Tcp, priority: 100}}
+  - name: rule allows HTTPS from anywhere
+    expect: miss
+    tables:
+      AzureActivity:
+        - TimeGenerated: -10m
+          OperationNameValue: MICROSOFT.NETWORK/NETWORKSECURITYGROUPS/SECURITYRULES/WRITE
+          ActivityStatusValue: Success
+          Caller: dev@contoso.com
+          Properties:
+            requestbody__json: {properties: {access: Allow, direction: Inbound, sourceAddressPrefix: "*", destinationPortRange: "443", protocol: Tcp, priority: 110}}
+  - name: SSH allowed only from the bastion subnet
+    expect: miss
+    tables:
+      AzureActivity:
+        - TimeGenerated: -10m
+          OperationNameValue: MICROSOFT.NETWORK/NETWORKSECURITYGROUPS/SECURITYRULES/WRITE
+          ActivityStatusValue: Success
+          Caller: dev@contoso.com
+          Properties:
+            requestbody__json: {properties: {access: Allow, direction: Inbound, sourceAddressPrefix: 10.20.0.0/27, destinationPortRange: "22", protocol: Tcp, priority: 120}}
