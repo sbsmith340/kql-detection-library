@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DETECTIONS = ROOT / "detections"
 INDEX = ROOT / "docs" / "INDEX.md"
 ARM = ROOT / "deploy" / "analytics-rules.json"
+LAYER = ROOT / "deploy" / "attack-navigator-layer.json"
 
 REQUIRED = ["id", "name", "description", "severity", "status", "tactics", "techniques",
             "data_sources", "query_frequency", "query_period", "trigger_threshold", "query",
@@ -120,6 +121,27 @@ def build_index(items) -> str:
     return "\n".join(lines) + "\n"
 
 
+def build_layer(items) -> dict:
+    """MITRE ATT&CK Navigator layer: open it at https://mitre-attack.github.io/attack-navigator/ to see coverage."""
+    by_tech: dict[str, list[str]] = {}
+    for _, d in items:
+        for t in d["techniques"]:
+            by_tech.setdefault(t, []).append(d["name"])
+    return {
+        "name": "KQL Detection Library coverage",
+        "versions": {"layer": "4.5", "navigator": "5.1.0", "attack": "16"},
+        "domain": "enterprise-attack",
+        "description": "Techniques covered by detections in github.com/sbsmith340/kql-detection-library. "
+                       "Score = number of detections.",
+        "techniques": [{"techniqueID": t, "score": len(names), "comment": "; ".join(sorted(names)),
+                        "enabled": True, "showSubtechniques": True}
+                       for t, names in sorted(by_tech.items())],
+        "gradient": {"colors": ["#c6dbef", "#08519c"], "minValue": 0, "maxValue": 2},
+        "legendItems": [{"label": "Covered by at least one detection", "color": "#6baed6"}],
+        "showTacticRowBackground": True,
+    }
+
+
 def build_arm(items) -> dict:
     resources = []
     for _, d in items:
@@ -180,8 +202,9 @@ def main() -> int:
 
     index = build_index(items)
     arm = json.dumps(build_arm(items), indent=2) + "\n"
+    layer = json.dumps(build_layer(items), indent=2) + "\n"
     if args.check:
-        stale = [p for p, c in ((INDEX, index), (ARM, arm)) if not p.exists() or p.read_text() != c]
+        stale = [p for p, c in ((INDEX, index), (ARM, arm), (LAYER, layer)) if not p.exists() or p.read_text() != c]
         if stale:
             print("Generated files are out of date; run python tools/build.py:",
                   ", ".join(str(p.relative_to(ROOT)) for p in stale))
@@ -191,6 +214,7 @@ def main() -> int:
         ARM.parent.mkdir(exist_ok=True)
         INDEX.write_text(index)
         ARM.write_text(arm)
+        LAYER.write_text(layer)
     print(f"OK: {len(items)} detections valid")
     return 0
 
