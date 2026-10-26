@@ -5,7 +5,7 @@ description: >
   common download/execution binaries. Typical of macro and exploit-based
   initial access.
 severity: High
-status: lab-test-pending
+status: emulator-tested
 tactics: [Execution, InitialAccess]
 techniques: [T1204.002, T1566.001]
 data_sources: [DeviceProcessEvents]

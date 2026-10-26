@@ -5,7 +5,7 @@ description: >
   a common way to hide download cradles and payloads from simple inspection.
   The rule decodes the payload so the analyst sees it immediately.
 severity: Medium
-status: lab-test-pending
+status: emulator-tested
 tactics: [Execution, DefenseEvasion]
 techniques: [T1059.001, T1027]
 data_sources: [DeviceProcessEvents]

@@ -5,7 +5,7 @@ description: >
   comsvcs.dll MiniDump) and well-known credential dumping tool names or
   command-line markers.
 severity: High
-status: lab-test-pending
+status: emulator-tested
 tactics: [CredentialAccess]
 techniques: [T1003.001]
 data_sources: [DeviceProcessEvents]

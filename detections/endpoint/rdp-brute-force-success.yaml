@@ -4,7 +4,7 @@ description: >
   Brute force against RDP/SMB that eventually succeeds. Looks for a burst of
   failures from one remote IP to a device, then a successful logon from that IP.
 severity: High
-status: lab-test-pending
+status: emulator-tested
 tactics: [CredentialAccess, InitialAccess]
 techniques: [T1110.001, T1021.001]
 data_sources: [DeviceLogonEvents]
