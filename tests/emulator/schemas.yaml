@@ -1,0 +1,66 @@
+# Columns the detections read, with the types the real Sentinel / Defender XDR tables use.
+# The emulator runner defines each table as a typed datatable with these columns, so a
+# query that misuses a column type (e.g. compares a string to a number) fails here too.
+SigninLogs:
+  TimeGenerated: datetime
+  UserPrincipalName: string
+  ResultType: string
+  IPAddress: string
+  AuthenticationRequirement: string
+  LocationDetails: dynamic
+  AppDisplayName: string
+AuditLogs:
+  TimeGenerated: datetime
+  OperationName: string
+  InitiatedBy: dynamic
+  TargetResources: dynamic
+  CorrelationId: string
+AzureActivity:
+  TimeGenerated: datetime
+  OperationNameValue: string
+  ActivityStatusValue: string
+  Caller: string
+  CallerIpAddress: string
+  SubscriptionId: string
+  ResourceProviderValue: string
+  _ResourceId: string
+  ResourceGroup: string
+  Properties: string
+OfficeActivity:
+  TimeGenerated: datetime
+  Operation: string
+  Parameters: string
+  UserId: string
+  ClientIP: string
+DeviceProcessEvents:
+  Timestamp: datetime
+  DeviceId: string
+  DeviceName: string
+  AccountName: string
+  FileName: string
+  ProcessCommandLine: string
+  InitiatingProcessFileName: string
+  InitiatingProcessCommandLine: string
+  ReportId: long
+DeviceLogonEvents:
+  Timestamp: datetime
+  DeviceName: string
+  ActionType: string
+  LogonType: string
+  RemoteIP: string
+  AccountName: string
+UrlClickEvents:
+  Timestamp: datetime
+  AccountUpn: string
+  Url: string
+  ActionType: string
+  IsClickedThrough: bool
+  ThreatTypes: string
+  NetworkMessageId: string
+  IPAddress: string
+EmailEvents:
+  Timestamp: datetime
+  NetworkMessageId: string
+  Subject: string
+  SenderFromAddress: string
+  DeliveryAction: string
