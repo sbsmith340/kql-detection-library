@@ -63,3 +63,10 @@ def test_arm_template_shape():
 
 def test_generated_files_are_current():
     assert build.INDEX.read_text() == build.build_index(ITEMS)
+
+
+def test_navigator_layer_covers_every_technique():
+    layer = build.build_layer(ITEMS)
+    listed = {t["techniqueID"] for t in layer["techniques"]}
+    assert listed == {t for _, d in ITEMS for t in d["techniques"]}
+    assert layer["domain"] == "enterprise-attack"
