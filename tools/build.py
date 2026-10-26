@@ -28,7 +28,7 @@ REQUIRED = ["id", "name", "description", "severity", "status", "tactics", "techn
             "data_sources", "query_frequency", "query_period", "trigger_threshold", "query",
             "entity_mappings", "tuning", "false_positives", "test"]
 SEVERITIES = {"Informational", "Low", "Medium", "High"}
-STATUSES = {"lab-test-pending", "lab-tested", "production"}
+STATUSES = {"lab-test-pending", "emulator-tested", "lab-tested", "production"}
 # Sentinel's tactic names (no spaces), from the MITRE ATT&CK Enterprise matrix
 TACTICS = {"Reconnaissance", "ResourceDevelopment", "InitialAccess", "Execution", "Persistence",
            "PrivilegeEscalation", "DefenseEvasion", "CredentialAccess", "Discovery",
