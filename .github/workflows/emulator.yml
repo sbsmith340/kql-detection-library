@@ -1,0 +1,28 @@
+name: emulator
+
+# Runs every detection's KQL, unchanged, against synthetic log rows on the
+# Azure Data Explorer (Kusto) emulator. Each detection must fire on its "hit"
+# cases and stay quiet on its "miss" cases.
+on:
+  push:
+  pull_request:
+
+jobs:
+  kql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      kusto:
+        image: mcr.microsoft.com/azuredataexplorer/kustainer-linux:latest
+        env:
+          ACCEPT_EULA: "Y"
+        ports:
+          - 8080:8080
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pyyaml
+      - name: Run detections against the Kusto emulator
+        run: python tools/emulator_test.py --wait 600
