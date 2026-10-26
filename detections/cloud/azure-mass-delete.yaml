@@ -4,7 +4,7 @@ description: >
   One caller deletes an unusual number of Azure resources in a short window.
   Covers destructive insider actions and compromised automation credentials.
 severity: High
-status: lab-test-pending
+status: emulator-tested
 tactics: [Impact]
 techniques: [T1485]
 data_sources: [AzureActivity]

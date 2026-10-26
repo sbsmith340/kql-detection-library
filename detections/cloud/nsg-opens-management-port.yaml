@@ -4,7 +4,7 @@ description: >
   An NSG security rule is created or updated to allow RDP, SSH, WinRM, or SMB
   from any source. One of the most common causes of cloud compromise.
 severity: High
-status: lab-test-pending
+status: emulator-tested
 tactics: [DefenseEvasion, InitialAccess]
 techniques: [T1562.007, T1133]
 data_sources: [AzureActivity]
