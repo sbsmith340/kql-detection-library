@@ -5,7 +5,7 @@ description: >
   access scopes. Illicit consent grants give attackers persistent API access
   that survives password resets.
 severity: Medium
-status: lab-test-pending
+status: emulator-tested
 tactics: [Persistence, CredentialAccess]
 techniques: [T1528]
 data_sources: [AuditLogs]

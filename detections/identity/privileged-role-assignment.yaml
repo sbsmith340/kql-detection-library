@@ -4,7 +4,7 @@ description: >
   A highly privileged directory role is added directly to a user or service
   principal, rather than through a Privileged Identity Management activation.
 severity: High
-status: lab-test-pending
+status: emulator-tested
 tactics: [PrivilegeEscalation, Persistence]
 techniques: [T1098.003]
 data_sources: [AuditLogs]

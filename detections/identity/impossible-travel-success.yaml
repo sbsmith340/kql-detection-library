@@ -5,7 +5,7 @@ description: >
   the configured number of hours apart. Simple, explainable alternative to a
   full velocity calculation.
 severity: Medium
-status: lab-test-pending
+status: emulator-tested
 tactics: [InitialAccess]
 techniques: [T1078.004]
 data_sources: [SigninLogs]
