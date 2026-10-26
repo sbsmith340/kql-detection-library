@@ -5,7 +5,7 @@ description: >
   time) identified as phishing or malware. These users need password reset and
   session revocation review.
 severity: High
-status: lab-test-pending
+status: emulator-tested
 tactics: [InitialAccess]
 techniques: [T1566.002, T1204.001]
 data_sources: [UrlClickEvents, EmailEvents]

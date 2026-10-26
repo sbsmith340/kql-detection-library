@@ -4,7 +4,7 @@ description: >
   A mailbox rule is created or changed to forward, redirect, or delete mail,
   often to hide replies from the victim during business email compromise.
 severity: Medium
-status: lab-test-pending
+status: emulator-tested
 tactics: [Collection, Exfiltration]
 techniques: [T1114.003]
 data_sources: [OfficeActivity]
