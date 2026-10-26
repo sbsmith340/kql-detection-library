@@ -1,0 +1,153 @@
+{
+  "name": "KQL Detection Library coverage",
+  "versions": {
+    "layer": "4.5",
+    "navigator": "5.1.0",
+    "attack": "16"
+  },
+  "domain": "enterprise-attack",
+  "description": "Techniques covered by detections in github.com/sbsmith340/kql-detection-library. Score = number of detections.",
+  "techniques": [
+    {
+      "techniqueID": "T1003.001",
+      "score": 1,
+      "comment": "Credential dumping tool or LSASS dump via comsvcs.dll",
+      "enabled": true,
+      "showSubtechniques": true
+    },
+    {
+      "techniqueID": "T1021.001",
+      "score": 1,
+      "comment": "Many failed network logons followed by success from the same IP",
+      "enabled": true,
+      "showSubtechniques": true
+    },
+    {
+      "techniqueID": "T1027",
+      "score": 1,
+      "comment": "PowerShell launched with an encoded command",
+      "enabled": true,
+      "showSubtechniques": true
+    },
+    {
+      "techniqueID": "T1059.001",
+      "score": 1,
+      "comment": "PowerShell launched with an encoded command",
+      "enabled": true,
+      "showSubtechniques": true
+    },
+    {
+      "techniqueID": "T1078.004",
+      "score": 1,
+      "comment": "Successful sign-ins from two countries within a short window",
+      "enabled": true,
+      "showSubtechniques": true
+    },
+    {
+      "techniqueID": "T1098.003",
+      "score": 1,
+      "comment": "Privileged Entra ID role assigned outside PIM",
+      "enabled": true,
+      "showSubtechniques": true
+    },
+    {
+      "techniqueID": "T1110.001",
+      "score": 1,
+      "comment": "Many failed network logons followed by success from the same IP",
+      "enabled": true,
+      "showSubtechniques": true
+    },
+    {
+      "techniqueID": "T1110.003",
+      "score": 1,
+      "comment": "Password spray against Entra ID",
+      "enabled": true,
+      "showSubtechniques": true
+    },
+    {
+      "techniqueID": "T1114.003",
+      "score": 1,
+      "comment": "Inbox rule forwards or redirects mail to an external address",
+      "enabled": true,
+      "showSubtechniques": true
+    },
+    {
+      "techniqueID": "T1133",
+      "score": 1,
+      "comment": "Network security group rule opens a management port to the internet",
+      "enabled": true,
+      "showSubtechniques": true
+    },
+    {
+      "techniqueID": "T1204.001",
+      "score": 1,
+      "comment": "User clicked through a URL later classified as malicious",
+      "enabled": true,
+      "showSubtechniques": true
+    },
+    {
+      "techniqueID": "T1204.002",
+      "score": 1,
+      "comment": "Office application spawns a script interpreter or LOLBin",
+      "enabled": true,
+      "showSubtechniques": true
+    },
+    {
+      "techniqueID": "T1485",
+      "score": 1,
+      "comment": "Mass deletion of Azure resources by one identity",
+      "enabled": true,
+      "showSubtechniques": true
+    },
+    {
+      "techniqueID": "T1528",
+      "score": 1,
+      "comment": "User consent to OAuth app with high-risk permissions",
+      "enabled": true,
+      "showSubtechniques": true
+    },
+    {
+      "techniqueID": "T1562.007",
+      "score": 1,
+      "comment": "Network security group rule opens a management port to the internet",
+      "enabled": true,
+      "showSubtechniques": true
+    },
+    {
+      "techniqueID": "T1566.001",
+      "score": 1,
+      "comment": "Office application spawns a script interpreter or LOLBin",
+      "enabled": true,
+      "showSubtechniques": true
+    },
+    {
+      "techniqueID": "T1566.002",
+      "score": 1,
+      "comment": "User clicked through a URL later classified as malicious",
+      "enabled": true,
+      "showSubtechniques": true
+    },
+    {
+      "techniqueID": "T1621",
+      "score": 1,
+      "comment": "MFA fatigue - repeated push denials followed by approval",
+      "enabled": true,
+      "showSubtechniques": true
+    }
+  ],
+  "gradient": {
+    "colors": [
+      "#c6dbef",
+      "#08519c"
+    ],
+    "minValue": 0,
+    "maxValue": 2
+  },
+  "legendItems": [
+    {
+      "label": "Covered by at least one detection",
+      "color": "#6baed6"
+    }
+  ],
+  "showTacticRowBackground": true
+}
